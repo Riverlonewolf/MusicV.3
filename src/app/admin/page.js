@@ -1,12 +1,12 @@
 // app/admin/page.js (หรือหน้าที่ต้องการ)
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link'; // <<<--- 1. เพิ่ม Import นี้เข้ามา
+import Link from 'next/link';
 import {
   getFirestore, collection, addDoc, getDocs, doc, deleteDoc,
   updateDoc, serverTimestamp, query, orderBy
 } from "firebase/firestore";
-import { db } from '@/lib/firebase'; // *** ตรวจสอบ path นี้ให้ถูกต้อง ***
+import { db } from '@/lib/firebase';
 
 export default function AdminPage() {
   const [songs, setSongs] = useState([]);
@@ -19,139 +19,194 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchSongs();// สั่งให้ไปดึงรายการเพลงมาแสดงทันที
+    fetchSongs();
   }, []);
 
   const fetchSongs = async () => {
     try {
-      setLoading(true); // 1. "กำลังโหลดเพลง..."
-      const songsCollection = collection(db, "songs"); // 2.ไปที่collection "songs"
-      const q = query(songsCollection, orderBy("createdAt", "desc"));// 3. สร้างคำสั่ง: "ขอดูเพลงใน collectionsongs ทั้งหมด โดยเรียงตาม createdAt (เวลาที่สร้าง) จากใหม่สุดไปเก่าสุด"
-      const songsSnapshot = await getDocs(q); // 4. ส่งคำสั่งไป Firebase แล้วรอข้อมูลกลับมา
-      // 5. แปลงข้อมูลที่ได้ (songsSnapshot) ให้อยู่ในรูปแบบที่เราใช้งานง่าย
+      setLoading(true);
+      const songsCollection = collection(db, "songs");
+      const q = query(songsCollection, orderBy("createdAt", "desc"));
+      const songsSnapshot = await getDocs(q);
       const songsList = songsSnapshot.docs.map(doc => ({
-        id: doc.id,    // เอา ID ของเพลงมาด้วย
-        ...doc.data() // เอาข้อมูลอื่นๆ ทั้งหมดของเพลงนั้นมา
+        id: doc.id,
+        ...doc.data()
       }));
-      setSongs(songsList); // 6. เอารายการเพลงที่ได้ไปใส่ใน "สมุดรายการเพลง" (State `songs`)
-      setError(null);      // 7. ถ้าเคยมี error ก็ล้างทิ้งไป
+      setSongs(songsList);
+      setError(null);
     } catch (err) {
       console.error("Error fetching songs:", err);
-      setError("ไม่สามารถโหลดข้อมูลเพลงได้"); // 8. ถ้ามีปัญหา
+      setError("ไม่สามารถโหลดข้อมูลเพลงได้");
     } finally {
-      setLoading(false); // 9. "โหลดเสร็จแล้ว!" (ไม่ว่าจะสำเร็จหรือล้มเหลว)
+      setLoading(false);
     }
   };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-  };//ฟังก์ชันนี้จะทำงาน ทุกครั้งที่เราพิมพ์อะไรลงไปในช่องกรอกข้อมูล (input fields)
+  };
+
+  // =================================================================
+  // START: สร้างฟังก์ชัน handleCancelEdit ตรงนี้
+  // =================================================================
+  const handleCancelEdit = () => {
+    setEditId(null); // 1. ยกเลิกการแก้ไข (เคลียร์ ID ที่กำลังแก้ไข)
+    setForm({        // 2. ล้างข้อมูลในฟอร์มให้ว่าง
+      bandName: '',
+      albumTitle: '',
+      songTitle: '',
+      youtubeLink: '',
+      albumId: '',
+      trackNumber: ''
+    });
+    setError(null); // 3. (ถ้ามี) เคลียร์ error message
+  };
+  // =================================================================
+  // END: สร้างฟังก์ชัน handleCancelEdit
+  // =================================================================
 
   const handleAdd = async () => {
     // 1. ตรวจสอบว่ากรอกข้อมูลครบไหม
-    if (!form.bandName || !form.albumTitle || /* ... */ !form.trackNumber) {
-      setError("กรุณากรอกข้อมูลให้ครบทุกช่อง..."); return;
+    if (!form.bandName || !form.albumTitle || !form.songTitle || !form.albumId || !form.trackNumber /* || !form.youtubeLink  // youtubeLink อาจจะไม่บังคับ */) {
+      setError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
+      return;
     }
-    const trackNum = parseInt(form.trackNumber, 10); // แปลง Track Number เป็นตัวเลข
-    if (isNaN(trackNum) || trackNum <= 0) { /* ... แจ้ง error ... */ return; }
-  
+    const trackNum = parseInt(form.trackNumber, 10);
+    if (isNaN(trackNum) || trackNum <= 0) {
+      setError("Track Number ต้องเป็นตัวเลขมากกว่า 0");
+      return;
+    }
+
     try {
-      setLoading(true); // 2. "กำลังเพิ่มเพลง..."
-      // 3. เตรียมข้อมูลเพลงที่จะบันทึกลง Firebase
+      setLoading(true);
       const docData = {
-        bandName: form.bandName.trim(), // .trim() คือตัดช่องว่างหน้า-หลัง
+        bandName: form.bandName.trim(),
         albumTitle: form.albumTitle.trim(),
-        // ... (ข้อมูลอื่นๆ) ...
+        songTitle: form.songTitle.trim(), // เพิ่ม songTitle
+        youtubeLink: form.youtubeLink.trim(), // เพิ่ม youtubeLink
+        albumId: form.albumId.trim(),       // เพิ่ม albumId
         trackNumber: trackNum,
-        createdAt: serverTimestamp() // 4. ใส่ "ตราประทับเวลา" ตอนสร้าง
+        createdAt: serverTimestamp()
       };
-      // 5. สั่ง Firebase ให้เพิ่มข้อมูลนี้เข้าไปในแฟ้ม "songs"
       const docRef = await addDoc(collection(db, "songs"), docData);
-  
-      // 6. อัปเดต "สมุดรายการเพลง" (State `songs`) บนหน้าเว็บทันที โดยไม่ต้องรอโหลดใหม่
-      setSongs([{ id: docRef.id, ...docData, createdAt: new Date() }, ...songs ]);
-      //    - `id: docRef.id`: Firebase จะคืน ID ของเพลงที่เพิ่งสร้างมาให้
-      //    - `createdAt: new Date()`: ใช้เวลาปัจจุบันของเครื่องเราไปก่อน (serverTimestamp จะอัปเดตทีหลัง)
-  
-      setForm({ bandName: '', /* ... ล้างฟอร์ม ... */ }); // 7. ล้างข้อมูลในฟอร์มให้ว่าง
-      setError(null); // 8. เคลียร์ error
-    } catch (err) { /* ... จัดการ error ... */ }
-    finally { setLoading(false); } // 9. "เพิ่มเสร็จแล้ว!"
+
+      // createdAt ที่ได้จาก serverTimestamp จะเป็น null ทันทีหลัง addDoc
+      // แต่จะถูก populate โดย Firestore ทีหลัง
+      // เพื่อให้ UI อัปเดตทันที เราสามารถใช้ new Date() ไปก่อนได้
+      // หรือจะ fetchSongs() ใหม่ก็ได้ แต่จะช้ากว่า
+      const newSongForState = {
+        id: docRef.id,
+        ...docData,
+        createdAt: { seconds: Math.floor(new Date().getTime() / 1000), nanoseconds: 0 } // จำลอง Timestamp object
+      };
+      // setSongs([{ id: docRef.id, ...docData, createdAt: new Date() }, ...songs ]); // แบบเดิมก็ได้
+      setSongs([newSongForState, ...songs]);
+
+
+      setForm({ bandName: '', albumTitle: '', songTitle: '', youtubeLink: '', albumId: '', trackNumber: '' });
+      setError(null);
+    } catch (err) {
+      console.error("Error adding song:", err);
+      setError("เกิดข้อผิดพลาดในการเพิ่มเพลง: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id) => {
-    // 1. ถามยืนยันก่อนลบ
     if (!confirm(`ต้องการลบเพลง ID: ${id} ใช่หรือไม่?`)) return;
     try {
-      setLoading(true); // 2. "กำลังลบ..."
-      // 3. สั่ง Firebase ให้ลบเพลงที่มี ID นี้ออกจากแฟ้ม "songs"
+      setLoading(true);
       await deleteDoc(doc(db, "songs", id));
-      // 4. อัปเดต "สมุดรายการเพลง" (State `songs`) บนหน้าเว็บ โดยกรองเพลงที่ถูกลบออกไป
       setSongs(songs.filter((song) => song.id !== id));
       setError(null);
-    } catch (err) { /* ... จัดการ error ... */ }
-    finally { setLoading(false); } // 5. "ลบเสร็จแล้ว!"
+    } catch (err) {
+      console.error("Error deleting song:", err);
+      setError("เกิดข้อผิดพลาดในการลบเพลง: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
   const handleUpdate = async () => {
-    // 1. ตรวจสอบข้อมูลเหมือนตอน Add
-    if (!form.bandName || /* ... */ !form.trackNumber) { /* ... */ return; }
+    if (!form.bandName || !form.albumTitle || !form.songTitle || !form.albumId || !form.trackNumber /* || !form.youtubeLink */) {
+      setError("กรุณากรอกข้อมูลให้ครบทุกช่องสำหรับการแก้ไข");
+      return;
+    }
     const trackNum = parseInt(form.trackNumber, 10);
-    if (isNaN(trackNum) || trackNum <= 0) { /* ... */ return; }
-    if (!editId) return; // ถ้าไม่มี editId (ไม่ได้อยู่ในโหมดแก้ไข) ก็ไม่ต้องทำอะไร
-  
+    if (isNaN(trackNum) || trackNum <= 0) {
+      setError("Track Number ต้องเป็นตัวเลขมากกว่า 0");
+      return;
+    }
+    if (!editId) return;
+
     try {
-      setLoading(true); // 2. "กำลังอัปเดต..."
-      const songRef = doc(db, "songs", editId); // 3. ชี้ไปยังเพลงที่เรากำลังจะแก้ไขใน Firebase
-      // 4. เตรียมข้อมูลที่อัปเดต (เอามาจากฟอร์ม)
-      await updateDoc(songRef, {
+      setLoading(true);
+      const songRef = doc(db, "songs", editId);
+      const updatedData = {
         bandName: form.bandName.trim(),
-        // ... (ข้อมูลอื่นๆ ที่อัปเดต) ...
+        albumTitle: form.albumTitle.trim(),
+        songTitle: form.songTitle.trim(),     // เพิ่ม songTitle
+        youtubeLink: form.youtubeLink.trim(), // เพิ่ม youtubeLink
+        albumId: form.albumId.trim(),         // เพิ่ม albumId
         trackNumber: trackNum,
-        updatedAt: serverTimestamp() // 5. ใส่ "ตราประทับเวลา" ตอนอัปเดต
-      });
-      // 6. อัปเดต "สมุดรายการเพลง" (State `songs`) บนหน้าเว็บ
+        updatedAt: serverTimestamp()
+      };
+      await updateDoc(songRef, updatedData);
+
       setSongs(
         songs.map((song) =>
-          song.id === editId ? { ...song, /* ... ใส่ข้อมูลใหม่ที่อัปเดต ... */ } : song
+          song.id === editId ? {
+            ...song, // เก็บค่าเดิมไว้ เช่น createdAt
+            ...updatedData, // เอาค่าใหม่มาทับ
+            // updatedAt: new Date() // ถ้าอยากให้ UI เห็นทันที (serverTimestamp จะอัปเดตทีหลัง)
+            updatedAt: { seconds: Math.floor(new Date().getTime() / 1000), nanoseconds: 0 } // จำลอง Timestamp object
+          } : song
         )
       );
-      handleCancelEdit(); // 7. ออกจากโหมดแก้ไข (ล้างฟอร์ม, editId เป็น null)
-    } catch (err) { /* ... จัดการ error ... */ }
-    finally { setLoading(false); } // 8. "อัปเดตเสร็จแล้ว!"
+      handleCancelEdit(); // <<<< เรียกใช้ฟังก์ชันที่สร้างขึ้น
+    } catch (err) {
+      console.error("Error updating song:", err);
+      setError("เกิดข้อผิดพลาดในการอัปเดตเพลง: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
   const handleEdit = (song) => {
-    setEditId(song.id); // 1. จำ ID ของเพลงที่เราจะแก้ไข
-    // 2. เอาข้อมูลของเพลงนั้นมาใส่ใน "แบบฟอร์ม"
+    setEditId(song.id);
     setForm({
       bandName: song.bandName || '',
       albumTitle: song.albumTitle || '',
-      // ... (ข้อมูลอื่นๆ ของเพลง) ...
+      songTitle: song.songTitle || '',       // เพิ่ม songTitle
+      youtubeLink: song.youtubeLink || '',   // เพิ่ม youtubeLink
+      albumId: song.albumId || '',           // เพิ่ม albumId
       trackNumber: song.trackNumber !== undefined ? String(song.trackNumber) : '',
     });
+    setError(null); // เคลียร์ error เก่าเมื่อเริ่มแก้ไข
   };
 
+
+  // ... (ส่วน JSX ไม่เปลี่ยนแปลงจากโค้ดเดิมของคุณ ยกเว้นส่วน error handling หรือ UI อื่นๆ ที่คุณอาจจะปรับปรุง)
+  // ... (โค้ด JSX ที่เหลือเหมือนเดิม) ...
   return (
     <div className="max-w-4xl mx-auto p-4">
 
-      {/* --- 2. เพิ่มปุ่ม Link กลับ ตรงนี้ --- */}
       <div className="mb-4">
-        <Link href="/"> {/* <<<===== แก้ Path ตรงนี้ เป็นหน้าที่ต้องการกลับไป ===== */}
+        <Link href="/">
           <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded transition duration-150 ease-in-out text-sm inline-flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            กลับหน้าหลัก {/* <<<--- แก้ข้อความได้ */}
+            กลับหน้าหลัก
           </button>
         </Link>
       </div>
-      {/* --- สิ้นสุดส่วนปุ่มกลับ --- */}
-
 
       <h1 className="text-2xl font-bold mb-4"> แอดมินเองจ้า</h1>
 
       {error && ( <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert"><p>{error}</p></div> )}
 
-      {/* Form Inputs */}
       <div className="bg-white rounded-xl shadow p-6 mb-6">
         <h2 className="text-xl font-semibold mb-3">{editId ? '✏️ แก้ไขข้อมูลเพลง' : '➕ เพิ่มเพลงใหม่'}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
@@ -163,7 +218,7 @@ export default function AdminPage() {
           <input type="text" name="songTitle" placeholder="ชื่อเพลง" value={form.songTitle} onChange={handleChange} className="border p-2 rounded w-full" required disabled={loading} />
           <input type="number" name="trackNumber" placeholder="Track Number" value={form.trackNumber} onChange={handleChange} className="border p-2 rounded w-full" required min="1" disabled={loading} />
         </div>
-        <input type="url" name="youtubeLink" placeholder="ลิงก์ YouTube (https://...)" value={form.youtubeLink} onChange={handleChange} className="border p-2 rounded w-full mb-4" required disabled={loading} />
+        <input type="url" name="youtubeLink" placeholder="ลิงก์ YouTube (https://...)" value={form.youtubeLink} onChange={handleChange} className="border p-2 rounded w-full mb-4" /* required  อาจจะไม่บังคับ */ disabled={loading} />
         <div className="flex space-x-2 justify-end">
           {editId ? (
             <>
@@ -176,7 +231,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Song List */}
       <div className="bg-white rounded-xl shadow p-6">
         <h2 className="text-xl font-semibold mb-4">📄 รายการเพลงทั้งหมด</h2>
         {loading && songs.length === 0 ? ( <p className="text-gray-500">กำลังโหลดข้อมูล...</p> )
@@ -192,6 +246,9 @@ export default function AdminPage() {
                   <p className="text-sm text-gray-700"><span className="font-medium">Album ID:</span> {song.albumId}</p>
                   <p className="text-sm text-gray-700"><span className="font-medium">Track:</span> {song.trackNumber}</p>
                   {song.youtubeLink && ( <a href={song.youtubeLink} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all block mt-1"> 🔗 ลิงก์ YouTube </a> )}
+                   {/* แสดงเวลา createdAt และ updatedAt (ถ้ามี) */}
+                   {song.createdAt && <p className="text-xs text-gray-500">สร้าง: {new Date(song.createdAt.seconds * 1000).toLocaleString()}</p>}
+                   {song.updatedAt && <p className="text-xs text-gray-500">แก้ไขล่าสุด: {new Date(song.updatedAt.seconds * 1000).toLocaleString()}</p>}
                 </div>
                 <div className="flex space-x-3 self-start md:self-center mt-2 md:mt-0">
                   <button onClick={() => handleEdit(song)} className="text-yellow-600 hover:text-yellow-800 hover:underline text-sm" disabled={loading || !!editId}> แก้ไข </button>
