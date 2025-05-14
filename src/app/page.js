@@ -173,33 +173,35 @@ export default function MusicPlayer() {
   }, [activeYoutubeId, selectedAlbum, albumSongs, playlist, isPlayingFromPlaylist, currentPlaylistIndex, getYoutubeId]);
 
 
-  // Effect 5: Load YouTube IFrame API
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (!window.YT || !window.YT.Player) {
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        if (firstScriptTag && firstScriptTag.parentNode) {
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        } else {
-            document.head.appendChild(tag);
-        }
-        window.onYouTubeIframeAPIReady = () => {
-          setYoutubeApiReady(true);
-        };
-      } else {
-        setYoutubeApiReady(true);
-      }
-    }
-    return () => {
-        // Clean up global callback if component unmounts before API loads
-        if (typeof window !== 'undefined' && window.onYouTubeIframeAPIReady && !youtubeApiReady) {
-           // window.onYouTubeIframeAPIReady = null; // Avoid issues if multiple instances or fast remounts
-        }
-    };
-  }, []); // Removed youtubeApiReady from dependency array as it's what this effect sets
+  let apiReady = false;
 
+  if (typeof window !== 'undefined') {
+    if (!window.YT || !window.YT.Player) {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+      window.onYouTubeIframeAPIReady = () => {
+        apiReady = true;
+        setYoutubeApiReady(true);
+      };
+    } else {
+      apiReady = true;
+      setYoutubeApiReady(true);
+    }
+  }
+
+  return () => {
+    if (typeof window !== 'undefined' && window.onYouTubeIframeAPIReady && !apiReady) {
+      // window.onYouTubeIframeAPIReady = null;
+    }
+  };
+}, []);
 
   // --- Action Handlers ---
 
@@ -700,13 +702,12 @@ const handlePlayPreviousInAlbum = useCallback(() => {
           <button onClick={() => setShowPlaylistView(false)} style={styles.playlistCloseButton} className="action-icon-button" title="Close Playlist View">✕</button>
         </div>
       </div>
-
-      {playlist.length === 0 ? (
-        <div style={styles.emptyPlaylistMessage}>
-          <span style={{fontSize: '2em', marginBottom: '10px'}}>🎧</span>
-          <p>Your playlist is feeling lonely!</p>
-          <p>Find albums you like and click the '+' button on songs to add them here.</p>
-        </div>
+{playlist.length === 0 ? (
+  <div style={styles.emptyPlaylistMessage}>
+    <span style={{fontSize: '2em', marginBottom: '10px'}}>🎧</span>
+    <p>Your playlist is feeling lonely!</p>
+    <p>{"Find albums you like and click the '+' button on songs to add them here."}</p>
+  </div>
       ) : (
         <div style={styles.songList}>
           {playlist.map((song, index) => {
