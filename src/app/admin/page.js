@@ -117,9 +117,9 @@ export default function AdminPage() {
     if (!confirm(`ต้องการลบเพลง ID: ${id} ใช่หรือไม่?`)) return;
     try {
       setLoading(true);
-      await deleteDoc(doc(db, "songs", id));
-      setSongs(songs.filter((song) => song.id !== id));
-      setError(null);
+      await deleteDoc(doc(db, "songs", id)); // ลบข้อมูลออกจาก Firestore
+      setSongs(songs.filter((song) => song.id !== id)); // ลบจาก state (เพื่อลบจาก UI ทันที)
+      setError(null);// เคลียร์ error
     } catch (err) {
       console.error("Error deleting song:", err);
       setError("เกิดข้อผิดพลาดในการลบเพลง: " + err.message);
@@ -138,7 +138,7 @@ export default function AdminPage() {
       setError("Track Number ต้องเป็นตัวเลขมากกว่า 0");
       return;
     }
-    if (!editId) return;
+    if (!editId) return; 
 
     try {
       setLoading(true);
@@ -208,7 +208,7 @@ export default function AdminPage() {
       {error && ( <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert"><p>{error}</p></div> )}
 
       <div className="bg-white rounded-xl shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-3">{editId ? '✏️ แก้ไขข้อมูลเพลง' : '➕ เพิ่มเพลงใหม่'}</h2>
+x        <h2 className="text-xl font-semibold mb-3">{editId ? '✏️ แก้ไขข้อมูลเพลง' : '➕ เพิ่มเพลงใหม่'}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
           <input type="text" name="bandName" placeholder="ชื่อวงดนตรี" value={form.bandName} onChange={handleChange} className="border p-2 rounded w-full" required disabled={loading} />
           <input type="text" name="albumTitle" placeholder="ชื่ออัลบั้ม" value={form.albumTitle} onChange={handleChange} className="border p-2 rounded w-full" required disabled={loading} />
@@ -246,7 +246,7 @@ export default function AdminPage() {
                   <p className="text-sm text-gray-700"><span className="font-medium">Album ID:</span> {song.albumId}</p>
                   <p className="text-sm text-gray-700"><span className="font-medium">Track:</span> {song.trackNumber}</p>
                   {song.youtubeLink && ( <a href={song.youtubeLink} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-800 hover:underline break-all block mt-1"> 🔗 ลิงก์ YouTube </a> )}
-                   {/* แสดงเวลา createdAt และ updatedAt (ถ้ามี) */}
+                   {/* แสดงเวลา createdAt และ updatedAt */}
                    {song.createdAt && <p className="text-xs text-gray-500">สร้าง: {new Date(song.createdAt.seconds * 1000).toLocaleString()}</p>}
                    {song.updatedAt && <p className="text-xs text-gray-500">แก้ไขล่าสุด: {new Date(song.updatedAt.seconds * 1000).toLocaleString()}</p>}
                 </div>
@@ -257,7 +257,7 @@ export default function AdminPage() {
               </li>
             ))}
           </ul>
-        )}
+        )}ป
       </div>
     </div>
   );

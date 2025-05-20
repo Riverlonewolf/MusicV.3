@@ -757,24 +757,24 @@ const handlePlayPreviousInAlbum = useCallback(() => {
     <div style={{ ...styles.appContainer, paddingBottom: activeYoutubeId && currentSongInfo ? styles.miniPlayer.height : '20px' }}>
       <div id="youtube-player-container" style={styles.hiddenIframe}></div>
 
-      <div style={styles.mainContent}>
-        <header style={styles.header}>
-          <h1 style={styles.appTitle}>My Favorite Songs</h1>
-          <div style={styles.headerButtons}>
-            <button
-              onClick={() => { setShowPlaylistView(!showPlaylistView); if (!showPlaylistView) setSelectedAlbum(null); }}
-              style={styles.playlistButton}
-              className="base-button-class"
-              title={showPlaylistView ? "Hide Playlist" : "Show My Playlist"}
-              aria-pressed={showPlaylistView}
-            >
-              <span role="img" aria-label="playlist icon">🎼</span> {showPlaylistView ? "Albums" : "My Playlist"} {playlist.length > 0 && !showPlaylistView && `(${playlist.length})`}
-            </button>
-            <Link href="/login" style={styles.adminButton} className="base-button-class">
-              <span role="img" aria-label="lock icon">🔐</span> Admin
-            </Link>
-          </div>
-        </header>
+        <div style={styles.mainContent}>
+          <header style={styles.header}>
+            <h1 style={styles.appTitle}>My Favorite Songs</h1>
+            <div style={styles.headerButtons}>
+              <button
+                onClick={() => { setShowPlaylistView(!showPlaylistView); if (!showPlaylistView) setSelectedAlbum(null); }}
+                style={styles.playlistButton}
+                className="base-button-class"
+                title={showPlaylistView ? "Hide Playlist" : "Show My Playlist"}
+                aria-pressed={showPlaylistView}
+              >
+                <span role="img" aria-label="playlist icon">🎼</span> {showPlaylistView ? "Albums" : "My Playlist"} {playlist.length > 0 && !showPlaylistView && `(${playlist.length})`}
+              </button>
+              <Link href="/login" style={styles.adminButton} className="base-button-class">
+                <span role="img" aria-label="lock icon">🔐</span> Admin
+              </Link>
+            </div>
+          </header>
 
         {error && (<div style={styles.errorBox}>
             <p>
