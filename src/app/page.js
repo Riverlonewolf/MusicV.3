@@ -8,38 +8,40 @@ import { db } from '@/lib/firebase';
 // --- Main Component ---
 export default function MusicPlayer() {
   // --- State Declarations ---
-  const [allAlbums, setAllAlbums] = useState([]);
+  const [allAlbums, setAllAlbums] = useState([]); //ไว้เก็บรายชื่ออัลบั้มทั้งหมด
   const [albumSongs, setAlbumSongs] = useState([]);
-  const [selectedAlbum, setSelectedAlbum] = useState(null);
-  const [playlist, setPlaylist] = useState([]);
+  const [selectedAlbum, setSelectedAlbum] = useState(null);// เก็บอัลบั้มที่เราเลือก
+  const [playlist, setPlaylist] = useState([]); //เก็บ playlist mที่เลือกมาจาก หลายอัลบั้ม
 
   // Player State
-  const [activeYoutubeId, setActiveYoutubeId] = useState(null); // The ID of the video to be loaded/played
-  const [currentSongInfo, setCurrentSongInfo] = useState(null);
-  const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false);
-  const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
-  const [isPlayerPlaying, setIsPlayerPlaying] = useState(false); // True if YT player is actually playing
+  const [activeYoutubeId, setActiveYoutubeId] = useState(null); // เก็บ YouTube Video ID ที่กำลังจะเล่น
+  const [currentSongInfo, setCurrentSongInfo] = useState(null); // ข้อมูลเพลงที่กำลังเล่นอยู่
+  const [isPlayingFromPlaylist, setIsPlayingFromPlaylist] = useState(false); //กำลังเล่นเพลงจาก playlist จริงไหม?
+  const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1); //ลำดับเพลงไหนใน playlist กำลังเล่นอยู่ (เช่น index ที่ 0, 1, 2,..
+  const [isPlayerPlaying, setIsPlayerPlaying] = useState(false); // YouTube Player กำลังเล่นเพลงอยู่จริงไหม
 
   // --- YouTube Player API State ---
-  const [youtubeApiReady, setYoutubeApiReady] = useState(false);
-  const playerRef = useRef(null); // To store the YT.Player instance
+  const [youtubeApiReady, setYoutubeApiReady] = useState(false); //YouTube IFrame API โหลดเสร็จหรือยัง?
+  const playerRef = useRef(null); // ตัวแปรอ้างถึง YT.Player
 
   // UI State
-  const [isLoadingAlbums, setIsLoadingAlbums] = useState(false);
-  const [isLoadingSongs, setIsLoadingSongs] = useState(false);
-  const [error, setError] = useState(null);
-  const [showPlaylistView, setShowPlaylistView] = useState(false);
+  const [isLoadingAlbums, setIsLoadingAlbums] = useState(false); // กำลังโหลดรายชื่ออัลบั้มจาก Firebase อยู่ไหม
+  const [isLoadingSongs, setIsLoadingSongs] = useState(false); //กำลังโหลดเพลงในอัลบั้มอยู่ไหม
+  const [error, setError] = useState(null); //ข้อความ error หากโหลดอัลบั้มหรือเพลงไม่สำเร็จ
+  const [showPlaylistView, setShowPlaylistView] = useState(false);// โหมดแสดง Playlist เปิดอยู่หรือไม่?
 
   const getYoutubeId = useCallback((url) => {
     if (!url || typeof url !== 'string') return null;
-    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regExp);
-    if (match && match[1]) return match[1];
-    if (!url.includes("http") && url.length >= 11 && !url.includes(" ")) return url;
-    return null;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/; //สร้างตัวเเปร regExp ตรวจจับรูปแบบลิงก์ 
+    // YouTube ในหลายๆรูปเเบบ เอาเฉพาะID ที่มีความยาว 11 ตัวอักษร ออกมา
+    const match = url.match(regExp); //สร้างตัวเเปร match  
+    if (match && match[1]) return match[1];//ถ้า match เเละ match1 มีค่าทั้งคู่ คือเจอลิงก์และดึง ID ออกมาได้ คืนค่า match1 
+    if (!url.includes("http") && url.length >= 11 && !url.includes(" ")) return url;//ถ้า url ไม่มี http เเต่มี ID ความยาว 11 ตัว เเล้วก็ไมมีเว้นวรรค 
+    // ทำการคืนค่า url เลย สันนิษฐานว่าเป็น ID เพียว
+    return null; //ถ้าลองทุกวิธีแล้วยังไม่ได้ ID ก็จะคืนค่า null
   }, []);
 
-  const getThumbnailUrl = useCallback((youtubeId, size = 'default') => {
+  const getThumbnailUrl = useCallback((youtubeId, size = 'default') => { //เมื่อได้ ID ก็ส่ง ID นั้น ไปยัง getThumbnailUrl เพื่อให้สร้างลิงก์รูปภาพปกของวิดีโอนั้น
     if (!youtubeId) return `/api/placeholder/${size === 'mqdefault' ? '320/180' : '120/90'}`;
     return `https://img.youtube.com/vi/${youtubeId}/${size}.jpg`;
   }, []);
@@ -48,56 +50,57 @@ export default function MusicPlayer() {
 
   // Effect 1: Fetch Albums & Load Playlist on initial mount
   useEffect(() => {
-    const fetchAlbums = async () => {
+    const fetchAlbums = async () => { //กำหนดฟังก์ชั่นสำหรับดึงข้อมูล
       setIsLoadingAlbums(true);
       setError(null);
       try {
-        const albumsCollectionRef = collection(db, 'albums');
-        const albumSnapshot = await getDocs(albumsCollectionRef);
-        const albumList = albumSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const albumsCollectionRef = collection(db, 'albums');//อ้างอิงไปยัง albums
+        const albumSnapshot = await getDocs(albumsCollectionRef);//ดึงข้อมูลalbumsทั้งหมดไว้ใน albumSnapshot
+        const albumList = albumSnapshot.docs.map(doc => ({ //albumSnapshot.docs → เป็น Array ของอัลบั้ม) .map(...) → วนลูปสร้างอ็อบเจกต์ใหม่สำหรับแต่ละอัลบั้ม
+          id: doc.id, //ดึงเอาไอดีของ albums
+          ...doc.data() // ดึงข้อมูลทั้งหมดที่มีอยู่ใน albums
         }));
-        if (Array.isArray(albumList)) {
-          albumList.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-          setAllAlbums(albumList);
+        if (Array.isArray(albumList)) { //ทำการตรวจสอบว่าข้อมูลที่ได้มาจาก albumlist เป็น array ไหม
+          albumList.sort((a, b) => (a.title || '').localeCompare(b.title || '')); // ถ้าเป็น ทำการเรียงชื่ออัลบั้มตามตัวอักษร ABC ต่อไปเรื่อยๆ
+          setAllAlbums(albumList);//อัปเดต state allAlbums ทำการโชว์อัลบั้มในหน้าเว็ป
         } else {
-          throw new Error("Invalid album data format.");
+          throw new Error("Invalid album data format.");//ถ้าไม่เป็น array ก็ทำการโยน error ออกมา
         }
       } catch (err) {
-        console.error("Firebase fetch albums error:", err);
-        setError(err.message || "Failed to load albums.");
-        setAllAlbums([]);
+        console.error("Firebase fetch albums error:", err);//แสดง error บน console
+        setError(err.message || "Failed to load albums."); //setError(...) เพื่อแสดงข้อความบนหน้าจอ
+        setAllAlbums([]);// set albumsทั้งหมดที่ขึ้นบน State เป็นค่าว่าง
       } finally {
-        setIsLoadingAlbums(false);
+        setIsLoadingAlbums(false); 
       }
     };
 
     const loadPlaylist = () => {
-      const savedPlaylist = localStorage.getItem("musicPlaylist");
-      if (savedPlaylist) {
+      const savedPlaylist = localStorage.getItem("musicPlaylist"); //ดึงข้อมูล playlist ที่เคยเซฟไว้ในเครื่อง
+      if (savedPlaylist) {//ตรวจสอบว่ามีข้อมูลจริงมั้ย
         try {
-          const parsedPlaylist = JSON.parse(savedPlaylist);
-          if (Array.isArray(parsedPlaylist)) {
+          const parsedPlaylist = JSON.parse(savedPlaylist); // เเปลงข้อมูลที่จัดเก็บไว้(String) เป็น Array 
+          if (Array.isArray(parsedPlaylist)) {//ตรวจสอบอีกทีว่า ข้อมูลที่ parse ออกมา เป็น array จริงหรือเปล่า
             const validated = parsedPlaylist.filter(item =>
               item && typeof item === 'object' && item.youtubeLink && item.songTitle && getYoutubeId(item.youtubeLink)
-            ).map(item => ({
+              //ตรวจสอบในเเต่ละเพลงว่าเป็น object จริงไหม เเล้วก็มี youtubelink กับ songtitle อยู่ เเล้วลิงก์ YouTubeLink นั้นต้องแปลงเป็น YouTube ID ได้จริง ๆ
+            ).map(item => ({//เพลงที่ผ่านการ filter หรือการกรองมาเเล้ว 
               ...item,
-              songTitle: item.songTitle || 'Unknown Title',
-              bandName: item.bandName || 'Unknown Artist'
+              songTitle: item.songTitle || 'Unknown Title',//ถ้าไม่มี songTitle → ให้ใช้ 'Unknown Title'
+              bandName: item.bandName || 'Unknown Artist'//ถ้าไม่มี bandName → ใช้ 'Unknown Artist'
             }));
-            setPlaylist(validated);
-          } else { localStorage.removeItem("musicPlaylist"); }
-        } catch (e) { localStorage.removeItem("musicPlaylist"); }
+            setPlaylist(validated); // บันทึก playlist ที่ผ่านการตรวจสอบไปยัง state ชื่อ playlist 
+          } else { localStorage.removeItem("musicPlaylist"); } //ถ้าไม่ใช่อาร์เรย์ หรือเกิด error → ลบทิ้ง
+        } catch (e) { localStorage.removeItem("musicPlaylist"); }//ถ้าไม่ใช่อาร์เรย์ หรือเกิด error → ลบทิ้ง
       }
     };
 
-    fetchAlbums();
-    loadPlaylist();
-  }, [getYoutubeId]);
+    fetchAlbums();//ทำการดึงข้อมูลเมื่อโหลดหน้าเว็ปครั้งเเรก
+    loadPlaylist();//ดึงข้อมูลที่มาจาก local storage โหลดหน้าเว็ปครั้งเเรก
+  }, [getYoutubeId]); //จะทำงาน อีกครั้ง ถ้า getYoutubeId เปลี่ยนไป
 
   // Effect 2: Fetch Songs when an album is selected
-  useEffect(() => {
+  useEffect(() => { //ทำงานทุกครั้งเลือกอัลบั้มใหม่
     const fetchSongsForAlbum = async () => {
       if (!selectedAlbum || !selectedAlbum.id) {
         setAlbumSongs([]);
@@ -106,40 +109,41 @@ export default function MusicPlayer() {
       setIsLoadingSongs(true);
       setError(null);
       try {
-        const songsCollectionRef = collection(db, 'songs');
-        const q = query(
+        const songsCollectionRef = collection(db, 'songs'); //อ้างอิงไปยัง collecction ชื่อ songs
+        const q = query( //สร้าง query ดูว่า
+
           songsCollectionRef,
-          where("albumId", "==", selectedAlbum.id),
-          orderBy("trackNumber", "asc")
+          where("albumId", "==", selectedAlbum.id),//“เพลงที่อยู่ในอัลบั้มที่มี albumId ตรงกับ selectedAlbum มั้ย
+          orderBy("trackNumber", "asc")//แล้วเรียงลำดับเพลงตาม trackNumber (ลำดับเพลงในอัลบั้ม)
         );
-        const songSnapshot = await getDocs(q);
-        const songList = songSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const songSnapshot = await getDocs(q);//ดึงข้อมูลทั้งหมดจาก query ไว้ใน songSnapshot 
+        const songList = songSnapshot.docs.map(doc => ({ // mapวนลูปทั้งอัลบั้ม
+          id: doc.id,// เเปลงข้อมูลให้ใช้ง่ายขึ่น เป็น Array เช่น จะได้ { id: "123", title: "เพลงทิ้งไป", ... }
+          ...doc.data() 
         }));
-        if (Array.isArray(songList)) {
-          setAlbumSongs(songList)
+        if (Array.isArray(songList)) { //ตรวจสอบว่าเป็น Array ไหม
+          setAlbumSongs(songList) //set state เเสดงเพลงใน Album
         } else {
           throw new Error("Invalid song data format for album.");
         }
       } catch (err) {
-        console.error(`Firebase fetch songs error for album ${selectedAlbum.id}:`, err);
-        setError(err.message || `Failed to load songs for album "${selectedAlbum.title}".`);
-        setAlbumSongs([]);
+        console.error(`Firebase fetch songs error for album ${selectedAlbum.id}:`, err);// ถ้าเกิดข้อผิดพลาดในการโหลดเพลงจากอัลบั้มนี้ เเสดง Error ใน Console (หน้า Dev Tools ของเบราว์เซอร์)
+        setError(err.message || `Failed to load songs for album "${selectedAlbum.title}".`); //เเสดง Error ใน State 
+        setAlbumSongs([]);//set Albums เป็นค่าว่าง 
       } finally {
-        setIsLoadingSongs(false);
+        setIsLoadingSongs(false);//set เป็น False เเล้วจบการทำงาน
       }
     };
-    fetchSongsForAlbum();
-  }, [selectedAlbum]);
+    fetchSongsForAlbum(); // เเสดงเพลงใน Albums
+  }, [selectedAlbum]); //ทำงานทุกครั้งที่ มีการเลือกอัลบั้มใหม่
 
-  // Effect 3: Save personal playlist to localStorage
+  // Effect 3:  ทุกครั้งที่ข้อมูลใน playlist มีการเปลี่ยนแปลง (เช่น เพิ่มเพลง, ลบเพลง, หรือเคลียร์ playlist ทั้งหมด)
   useEffect(() => {
     if (Array.isArray(playlist)) {
-      if (playlist.length > 0) {
-        localStorage.setItem("musicPlaylist", JSON.stringify(playlist));
+      if (playlist.length > 0) { //ถ้ามี playlist` มีรายการอย่างน้อย 1 รายการ
+        localStorage.setItem("musicPlaylist", JSON.stringify(playlist)); //ทำการเเปลง เป็น Array เป็น String เเล้วบันทึกข้อมูลไว้ใน localstorage ชื่อ music playlist
       } else {
-        localStorage.removeItem("musicPlaylist");
+        localStorage.removeItem("musicPlaylist");//ถ้าไม่ตรงตามเงื่อน ก็ทำการลบออกจาก localstorage เลย
       }
     }
   }, [playlist]);

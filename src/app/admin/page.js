@@ -133,17 +133,17 @@ export default function AdminPage() {
       setError("กรุณากรอกข้อมูลให้ครบทุกช่องสำหรับการแก้ไข");
       return;
     }
-    const trackNum = parseInt(form.trackNumber, 10);
-    if (isNaN(trackNum) || trackNum <= 0) {
+    const trackNum = parseInt(form.trackNumber, 10);// เอา trackNumber จากฟอร์มมาแปลงเป็นเลข
+      if (isNaN(trackNum) || trackNum <= 0) { // ตรวจสอบว่า trackNumber เป็นตัวเลขที่มากกว่า 0
       setError("Track Number ต้องเป็นตัวเลขมากกว่า 0");
       return;
     }
-    if (!editId) return; 
+    if (!editId) return; //ถ้ายังไม่มี editId  หมายถึงยังไม่ได้เลือกเพลงที่จะแก้ ก็ไม่ต้องทำอะไร
 
     try {
       setLoading(true);
       const songRef = doc(db, "songs", editId);
-      const updatedData = {
+      const updatedData = { //gตรียมข้อมูลใหม่ที่จะเอาไปแทนที่อันเดิม หรือว่า อัพเดตนั่นเอง
         bandName: form.bandName.trim(),
         albumTitle: form.albumTitle.trim(),
         songTitle: form.songTitle.trim(),     // เพิ่ม songTitle
